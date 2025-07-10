@@ -51,7 +51,7 @@ export default function NavbarBottom() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 pb-3 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-10">
+    <nav className="fixed bottom-0 left-0 pb-5 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-10">
       <div className="container-mobile">
         <div className="flex justify-between items-center h-16">
           {navItems.map((item) => {
