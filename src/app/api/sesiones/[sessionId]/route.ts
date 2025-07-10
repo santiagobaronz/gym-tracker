@@ -4,7 +4,7 @@ import { z } from "zod";
 
 const prisma = new PrismaClient();
 
-// Esquema de validación para los ejercicios de una sesión
+// Validación para ejercicios
 const sessionExerciseSchema = z.object({
   id: z.string().optional(),
   exerciseId: z.string().min(1, "El ejercicio es obligatorio"),
@@ -13,7 +13,7 @@ const sessionExerciseSchema = z.object({
   weightKg: z.number().min(0, "El peso no puede ser negativo"),
 });
 
-// Esquema de validación para la actualización de sesiones
+// Validación para la sesión
 const sessionUpdateSchema = z.object({
   date: z.string().or(z.date()),
   durationMin: z.number().min(1, "La duración debe ser al menos 1 minuto"),
@@ -21,23 +21,22 @@ const sessionUpdateSchema = z.object({
   exercises: z.array(sessionExerciseSchema).min(1, "Debe añadir al menos un ejercicio"),
 });
 
-// GET - Obtener una sesión específica
-export async function GET(
-  request: Request,
-  { params }: { params: { sessionId: string } }
-) {
+// Utilidad para extraer sessionId de la URL
+function extractSessionId(request: Request): string | null {
+  const url = new URL(request.url);
+  const segments = url.pathname.split("/");
+  return segments[segments.length - 1] || null;
+}
+
+// GET - Obtener una sesión
+export async function GET(request: Request) {
+  const sessionId = extractSessionId(request);
+
+  if (!sessionId) {
+    return NextResponse.json({ error: "ID de sesión no proporcionado" }, { status: 400 });
+  }
+
   try {
-    const sessionId = params.sessionId;
-
-    // Verificar que el ID de la sesión sea válido
-    if (!sessionId) {
-      return NextResponse.json(
-        { error: "ID de sesión no proporcionado" },
-        { status: 400 }
-      );
-    }
-
-    // Obtener la sesión con sus ejercicios
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
       include: {
@@ -50,68 +49,48 @@ export async function GET(
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: "Sesión no encontrada" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Sesión no encontrada" }, { status: 404 });
     }
 
     return NextResponse.json(session);
   } catch (error) {
     console.error("Error al obtener la sesión:", error);
-    return NextResponse.json(
-      { error: "Error al procesar la solicitud" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error al procesar la solicitud" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// PUT - Actualizar una sesión existente
-export async function PUT(
-  request: Request,
-  { params }: { params: { sessionId: string } }
-) {
+// PUT - Actualizar una sesión
+export async function PUT(request: Request) {
+  const sessionId = extractSessionId(request);
+
+  if (!sessionId) {
+    return NextResponse.json({ error: "ID de sesión no proporcionado" }, { status: 400 });
+  }
+
   try {
-    const sessionId = params.sessionId;
-
-    // Verificar que el ID de la sesión sea válido
-    if (!sessionId) {
-      return NextResponse.json(
-        { error: "ID de sesión no proporcionado" },
-        { status: 400 }
-      );
-    }
-
-    // Extraer y validar los datos del cuerpo de la solicitud
     const body = await request.json();
-    const validationResult = sessionUpdateSchema.safeParse(body);
+    const validation = sessionUpdateSchema.safeParse(body);
 
-    if (!validationResult.success) {
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: validationResult.error.format() },
+        { error: "Datos inválidos", details: validation.error.format() },
         { status: 400 }
       );
     }
 
-    const { date, durationMin, notes, exercises } = validationResult.data;
+    const { date, durationMin, notes, exercises } = validation.data;
 
-    // Verificar que la sesión existe
     const existingSession = await prisma.session.findUnique({
       where: { id: sessionId },
     });
 
     if (!existingSession) {
-      return NextResponse.json(
-        { error: "Sesión no encontrada" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Sesión no encontrada" }, { status: 404 });
     }
 
-    // Actualizar la sesión y sus ejercicios en una transacción
     const updatedSession = await prisma.$transaction(async (tx) => {
-      // Actualizar la sesión
       await tx.session.update({
         where: { id: sessionId },
         data: {
@@ -121,12 +100,8 @@ export async function PUT(
         },
       });
 
-      // Eliminar los ejercicios existentes
-      await tx.sessionExercise.deleteMany({
-        where: { sessionId },
-      });
+      await tx.sessionExercise.deleteMany({ where: { sessionId } });
 
-      // Crear los nuevos ejercicios
       for (const exercise of exercises) {
         await tx.sessionExercise.create({
           data: {
@@ -139,7 +114,6 @@ export async function PUT(
         });
       }
 
-      // Devolver la sesión actualizada con sus ejercicios
       return tx.session.findUnique({
         where: { id: sessionId },
         include: {
@@ -155,66 +129,38 @@ export async function PUT(
     return NextResponse.json(updatedSession);
   } catch (error) {
     console.error("Error al actualizar la sesión:", error);
-    return NextResponse.json(
-      { error: "Error al procesar la solicitud" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error al procesar la solicitud" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
 }
 
 // DELETE - Eliminar una sesión
-export async function DELETE(
-  request: Request,
-  { params }: { params: { sessionId: string } }
-) {
+export async function DELETE(request: Request) {
+  const sessionId = extractSessionId(request);
+
+  if (!sessionId) {
+    return NextResponse.json({ error: "ID de sesión no proporcionado" }, { status: 400 });
+  }
+
   try {
-    const sessionId = params.sessionId;
-
-    // Verificar que el ID de la sesión sea válido
-    if (!sessionId) {
-      return NextResponse.json(
-        { error: "ID de sesión no proporcionado" },
-        { status: 400 }
-      );
-    }
-
-    // Verificar que la sesión existe
     const existingSession = await prisma.session.findUnique({
       where: { id: sessionId },
     });
 
     if (!existingSession) {
-      return NextResponse.json(
-        { error: "Sesión no encontrada" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Sesión no encontrada" }, { status: 404 });
     }
 
-    // Eliminar la sesión y sus ejercicios en una transacción
     await prisma.$transaction(async (tx) => {
-      // Eliminar los ejercicios de la sesión
-      await tx.sessionExercise.deleteMany({
-        where: { sessionId },
-      });
-
-      // Eliminar la sesión
-      await tx.session.delete({
-        where: { id: sessionId },
-      });
+      await tx.sessionExercise.deleteMany({ where: { sessionId } });
+      await tx.session.delete({ where: { id: sessionId } });
     });
 
-    return NextResponse.json(
-      { message: "Sesión eliminada correctamente" },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: "Sesión eliminada correctamente" }, { status: 200 });
   } catch (error) {
     console.error("Error al eliminar la sesión:", error);
-    return NextResponse.json(
-      { error: "Error al procesar la solicitud" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error al procesar la solicitud" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }

@@ -3,25 +3,23 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-/**
- * GET - Obtiene un usuario específico por su ID
- */
-export async function GET(
-  request: Request,
-  { params }: { params: { userId: string } }
-) {
+function extractUserId(request: Request): string | null {
+  const url = new URL(request.url);
+  const segments = url.pathname.split("/");
+  return segments[segments.length - 1] || null;
+}
+
+export async function GET(request: Request) {
+  const userId = extractUserId(request);
+
+  if (!userId) {
+    return NextResponse.json(
+      { error: "ID de usuario no proporcionado" },
+      { status: 400 }
+    );
+  }
+
   try {
-    const userId = params.userId;
-
-    // Verificar que el ID del usuario sea válido
-    if (!userId) {
-      return NextResponse.json(
-        { error: "ID de usuario no proporcionado" },
-        { status: 400 }
-      );
-    }
-
-    // Obtener el usuario
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
