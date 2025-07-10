@@ -197,7 +197,7 @@ export default function SharedWeeklySummaryPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-5">
+    <div className="max-w-lg mx-auto  py-5">
       <h1 className="text-2xl font-bold mb-6">Resumen Compartido</h1>
       
       <div className="flex justify-between items-center mb-6">
@@ -294,7 +294,7 @@ export default function SharedWeeklySummaryPage() {
           {/* Gráfica de comparación */}
           <div className="card p-4 mb-6">
             <h3 className="text-lg font-medium mb-4">Comparación semanal</h3>
-            <div className="h-64">
+            <div className="h-auto">
               <Bar data={comparisonChartData} options={comparisonChartOptions} />
             </div>
           </div>
@@ -315,11 +315,11 @@ export default function SharedWeeklySummaryPage() {
                   </div>
                   
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="text-center">
+                    <div className="text-center border-r-2 border-gray-300 dark:border-gray-700 pr-2">
                       <div className="text-lg font-semibold">{user.sessions}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">Sesiones</div>
                     </div>
-                    <div className="text-center">
+                    <div className="text-center border-r-2 border-gray-300 dark:border-gray-700 pr-2">
                       <div className="text-lg font-semibold">{Math.round(user.totalMin / 60 * 10) / 10}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">Horas</div>
                     </div>
