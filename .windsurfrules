@@ -1,0 +1,355 @@
+// Ejecución de comandos en la terminal
+
+Cada vez que vayas a ejecutar un comando de instalación npm debes hacerlo de la siguiente manera:
+npm config set registry https://registry.npmjs.org/ && npm i npm install -g pwa-asset-generator
+¿Por qué de esta forma? Porque mi maquina tiene el registry en otro lado y necesito instalarlo desde npmjs.org
+
+// Como organizar el código
+
+Debes siempre usar el principio de responsabilidad única (SRP) y el principio de separación de responsabilidades (SRP).
+No debes mezclar la lógica del negocio con la lógica de presentación.
+Usemos las carpetas de utils, components y demás para que cada cosa tenga su propio lugar.
+
+// Código limpio
+El código debe ser limpio y legible.
+Las variables deben ser dicientes de lo que hacen y deben estar en ingles.
+Los textos que se muestran al cliente deben estar en español.
+
+Vamos a crear un proyecto juntos de gimnasio, he preparado un prompt para que puedas trabajar con él. Asi que guardalo como memoria para que siempre lo tengas en cuenta. Adicionalmente he puesto a disposición unas windsurf rules para que las tengas en cuenta.
+
+El proyecto acaba de ser creado en next y por lo tanto solo tienen lo basico, tendras que realizar las intalaciones correspondientes según vayas creando con el propmt que te voy a dar. Sigue extrictamente lo que  dice el propmt y si tienes preguntas, debes hacerlas para clarificar y continuar.
+
+Aqui va el propmt:
+
+Este es el prompt inicial:
+
+Eres un Senior FULL-STACK Engineer especializado en Next.js 14 (app router), TypeScript, Tailwind CSS, Prisma ORM y PostgreSQL (Neon).
+
+Construye una PWA mobile-first llamada “TrackGym” para DOS usuarios fijos (“Vanessa” y “Santiago”) que permita registrar entrenamientos de gimnasio y consultar resúmenes diarios, semanales, mensuales y anuales.
+
+STACK & BASE CONFIG
+
+Next.js 14 – App Router, TypeScript, ESLint, Prettier.
+Tailwind CSS (dark mode = 'class', tema oscuro por defecto + switch a modo claro).
+Prisma ORM conectado a PostgreSQL (Neon). El connection-string se recibirá vía .env como DATABASE_URL.
+PWA: manifest.json, icons, service-worker (usa next-pwa o Workbox). Debe funcionar offline para páginas ya visitadas y ofrecer prompt de instalación.
+Charts: usa react-chartjs-2 + chart.js para gráficas.
+Deploy target: Vercel. Incluye vercel.json con un cron job que llame cada domingo 23:59 UTC a /api/cron/generate-weekly-summaries.
+FUNCIONAMIENTO GENERAL
+
+• NO hay login ni registro. Al abrir la app se muestra la pantalla “¿Quién está usando la app?” con dos botones/cards grandes: Vanessa y Santiago. Al escoger uno se guarda userId en localStorage y se establece en un contexto React ().
+
+• Toda la UI es mobile-first; anchura máxima 480 px, grid simple y botones grandes.
+
+• Idioma único: español.
+
+ENTIDADES Y ESQUEMA PRISMA
+
+model User {          // solo estos dos registros, seed obligatorio
+
+id          String   @id @default(uuid())
+
+name        String   @unique
+
+img String
+
+createdAt   DateTime @default(now())
+
+Sessions    Session[]
+
+WeeklySummaries WeeklySummary[]
+
+WeightEntries    WeightEntry[]
+
+Goals            Goal[]
+
+}
+
+model Exercise {     // catálogo base + personalizados
+
+id          String   @id @default(uuid())
+
+name        String
+
+category    String?
+
+createdAt   DateTime @default(now())
+
+creatorId   String?          // null = ejercicio seed/predefinido
+
+creator     User?    @relation(fields:[creatorId], references:[id])
+
+SessionExercises SessionExercise[]
+
+}
+
+model Session {      // una sesión de gimnasio en un día
+
+id          String   @id @default(uuid())
+
+userId      String
+
+user        User     @relation(fields:[userId], references:[id])
+
+date        DateTime
+
+durationMin Int
+
+notes       String?
+
+createdAt   DateTime @default(now())
+
+exercises   SessionExercise[]
+
+}
+
+model SessionExercise { // ejercicio dentro de una sesión
+
+id          String   @id @default(uuid())
+
+sessionId   String
+
+exerciseId  String
+
+sets        Int
+
+reps        Int
+
+weightKg    Float
+
+session     Session  @relation(fields:[sessionId], references:[id])
+
+exercise    Exercise @relation(fields:[exerciseId], references:[id])
+
+}
+
+model WeeklySummary {  // generado los domingos o bajo demanda
+
+id          String   @id @default(uuid())
+
+userId      String
+
+user        User     @relation(fields:[userId], references:[id])
+
+weekStart   DateTime // lunes 00:00
+
+sessions    Int
+
+totalMin    Int
+
+totalExercises Int
+
+createdAt   DateTime @default(now())
+
+}
+
+model WeightEntry {    // peso corporal por semana
+
+id          String   @id @default(uuid())
+
+userId      String
+
+user        User     @relation(fields:[userId], references:[id])
+
+weekStart   DateTime
+
+weightKg    Float
+
+createdAt   DateTime @default(now())
+
+}
+
+model Goal {           // hoja de ruta futura (mapeado pero sin UI aún)
+
+id          String   @id @default(uuid())
+
+userId      String
+
+type        String   // 'weight' | 'frequency' | 'exercise'
+
+targetValue Float
+
+createdAt   DateTime @default(now())
+
+}
+
+SEEDS
+
+• Crea dos usuarios: Vanessa y Santiago.
+
+• Inserta un JSON extenso (~300) de ejercicios de gimnasio comunes (campo name + category).
+
+• Proporciona script npm run seed que invoque prisma db seed.
+
+ARQUITECTURA DE CARPETAS (app router)
+
+app
+
+│ layout.tsx                // ThemeProvider, UserProvider, Tailwind base
+
+│ globals.css (Tailwind)
+
+├─ page.tsx                 // Selector de usuario
+
+├─ (user)/[userId]          // Segmento paralel-routes por usuario
+
+│   ├─ layout.tsx           // Nav bottom + header con nombre
+
+│   ├─ page.tsx             // Dashboard: botón “Registrar sesión”, KPIs semana actual
+
+│   ├─ sesiones/            // listado, form CRUD
+
+│   │   ├─ page.tsx         // historial
+
+│   │   ├─ new/page.tsx     // crear sesión
+
+│   │   └─ [sessionId]/edit/page.tsx
+
+│   ├─ resumen/
+
+│   │   ├─ semanal/page.tsx
+
+│   │   ├─ mensual/page.tsx
+
+│   │   └─ anual/page.tsx
+
+│   └─ objetivos/page.tsx   // UI simple para meta de peso y frecuencia
+
+├─ resumen/compartido/      // stats combinadas Vanessa+Santiago
+
+│   └─ semanal/page.tsx
+
+├─ api/
+
+│   ├─ ejercicios/add/route.ts // POST para agregar nuevo ejercicio
+
+│   ├─ sesiones/route.ts       // CRUD­REST o nested handlers
+
+│   ├─ resumen/generate/route.ts // GET calcula on-the-fly
+
+│   └─ cron/generate-weekly-summaries/route.ts // llamado por Vercel cron
+
+└─ components/ (área compartida)
+
+• NavbarBottom.tsx
+
+• ThemeToggle.tsx
+
+• SessionForm.tsx (React-Hook-Form + Zod)
+
+• ExerciseSelector.tsx (búscador + “Agregar nuevo”)
+
+• WeightChart.tsx
+
+• KpiCard.tsx
+
+FUNCIONALIDADES CLAVE
+
+Registrar sesión
+
+• Formulario: fecha (default hoy), duración (minutos), selector múltiple de ejercicios con sets/reps/peso, campo notas opcional.
+
+• Ejercicios se añaden mediante ExerciseSelector; si el término no existe, botón “+ Nuevo ejercicio” → modal que hace POST /api/ejercicios/add y actualiza lista.
+
+Historial diario
+
+• /[userId]/sesiones muestra tarjetas plegables por fecha. Cada tarjeta => editar o borrar (DELETE permanente).
+
+Resumen Semanal
+
+• Se “habilita” solo si la semana ya terminó (weekStart < startOfCurrentWeek).
+
+• API util /lib/summaries.ts calcula (o lee WeeklySummary) y devuelve:
+
+– nº sesiones, total horas, nº ejercicios, lista de ejercicios más repetidos.
+
+– peso corporal de esa semana (con input para añadir si falta).
+
+– proyección lineal simple del peso para próxima semana.
+
+• UI: Chart de peso (línea), barras comparativas, indicador de progreso vs meta de frecuencia y meta de peso.
+
+Resúmenes mensual / anual
+
+• Agrupan las WeeklySummaries por user. KPIs: promedios, récords (mayor nº sesiones, mayor carga total, mejor duración). Charts de barras.
+
+Resumen compartido
+
+• /resumen/compartido/semanal: fusiona métricas de ambos y muestra, p. ej., total combinado de horas, % de veces que fueron juntos el mismo día, etc.
+
+PWA / Notificaciones
+
+• Prepara service-worker para notificaciones push (sin implementar backend). Documenta en README.md cómo activar VAPID en futuro.
+
+• Muestra badges en el icono NAV cuando un resumen semanal esté pendiente de revisar.
+
+Tema oscuro
+
+• Tailwind config: darkMode:'class'.
+
+• ThemeToggle → guarda preferencia en localStorage. Theme por defecto: oscuro.
+
+Validaciones y UX
+
+• Usa Zod para validar forms.
+
+• Toasts (react-hot-toast) para confirmaciones/borrados.
+
+• Feedback loading con Skeletons.
+
+CRON / CÁLCULO AUTOMÁTICO
+
+• /api/cron/generate-weekly-summaries:
+
+1. Obtiene la semana que acaba de terminar (start previous Monday 00:00).
+
+2. Para cada user calcula stats y upserts en WeeklySummary.
+
+• vercel.json
+
+{
+"cron": [{
+"path": "/api/cron/generate-weekly-summaries",
+"schedule": "0 23 * * 0"  // Domingo 23:00 UTC
+}]
+}
+
+ARCHIVOS EXTRA
+
+• .env.example : DATABASE_URL="postgresql://…"
+
+• prisma/seed.ts inserta los ejercicios base + usuarios.
+
+• README.md con pasos:
+
+– pnpm install
+
+– cp .env.example .env.local
+
+– pnpm prisma migrate dev --name init
+
+– pnpm prisma db seed
+
+– pnpm dev
+
+ENTREGABLES QUE DEBE PRODUCIR WINDsurf
+
+Todo el árbol de archivos listo para correr.
+prisma/schema.prisma + seed.
+Código de todos los route-handlers.
+Componentes React completos.
+Tailwind config y estilos.
+manifest.json, service-worker.
+vercel.json.
+Documentación breve de cómo añadir notificaciones push en el futuro.
+IMPORTANTE
+
+• No implementar autenticación.
+
+• Ninguna exportación PDF/CSV.
+
+• Borrado de sesiones es permanente (DELETE físico).
+
+• Todas las rutas, textos y labels en español.
+
+• Código limpio, comentarios clave en español.

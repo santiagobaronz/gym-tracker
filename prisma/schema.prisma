@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  img       String
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  Sessions        Session[]
+  WeeklySummaries WeeklySummary[]
+  WeightEntries   WeightEntry[]
+  Goals           Goal[]
+  Exercises       Exercise[]
+}
+
+model Exercise {
+  id        String   @id @default(uuid())
+  name      String
+  category  String?
+  createdAt DateTime @default(now())
+  creatorId String?
+
+  // Relaciones
+  creator          User?             @relation(fields: [creatorId], references: [id])
+  SessionExercises SessionExercise[]
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  userId      String
+  date        DateTime
+  durationMin Int
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  user      User              @relation(fields: [userId], references: [id])
+  exercises SessionExercise[]
+}
+
+model SessionExercise {
+  id         String @id @default(uuid())
+  sessionId  String
+  exerciseId String
+  sets       Int
+  reps       Int
+  weightKg   Float
+
+  // Relaciones
+  session  Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+}
+
+model WeeklySummary {
+  id             String   @id @default(uuid())
+  userId         String
+  weekStart      DateTime // lunes 00:00
+  sessions       Int
+  totalMin       Int
+  totalExercises Int
+  createdAt      DateTime @default(now())
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id])
+}
+
+model WeightEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  weekStart DateTime
+  weightKg  Float
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, weekStart])
+}
+
+model Goal {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String // 'weight' | 'frequency' | 'exercise'
+  targetValue Float
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id])
+}
