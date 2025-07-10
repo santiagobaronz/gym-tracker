@@ -1,8 +1,0 @@
-{
-  "cron": [
-    {
-      "path": "/api/cron/generate-weekly-summaries",
-      "schedule": "0 23 * * 0"
-    }
-  ]
-}
